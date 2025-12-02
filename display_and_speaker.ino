@@ -49,7 +49,7 @@ const bool segmentPatterns[10][7] = {
   {1,1,1,1,0,1,1}  // 9
 };
 
-int currentNumber = 0;
+int currentNumber = -1;  // Changed from 0 to -1 (blank at startup)
 int newNumber     = -1;
 bool shouldPlay   = false;
 
@@ -66,6 +66,17 @@ void onDataRecv(const esp_now_recv_info *info, const uint8_t *data, int len) {
 
 // ====================== DISPLAY ======================
 void displayNumberOn7Seg(int number) {
+  // If number is -1, blank the display
+  if (number < 0) {
+    for (int j = 0; j < 3; j++) {
+      digitalWrite(digitPins[j], LOW);
+    }
+    for (int s = 0; s < 7; s++) {
+      ledcWrite(segmentPins[s], 0);
+    }
+    return;
+  }
+  
   int d[3] = { number / 100, (number / 10) % 10, number % 10 };
 
   bool showDigit[3] = {
@@ -75,32 +86,36 @@ void displayNumberOn7Seg(int number) {
   };
 
   for (int i = 0; i < 3; i++) {
-    // Turn all digits off
+    // 1. Turn all digits OFF first
     for (int j = 0; j < 3; j++) {
       digitalWrite(digitPins[j], LOW);
     }
+    
+    // 2. Turn all segments OFF (critical for high-power setup!)
+    for (int s = 0; s < 7; s++) {
+      ledcWrite(segmentPins[s], 0);
+    }
+    
+    // 3. Small delay to let MOSFETs fully switch off
+    delayMicroseconds(50);
 
     if (showDigit[i]) {
-      // Set segments for this digit
+      // 4. Set segments for this digit
       for (int s = 0; s < 7; s++) {
-        int pin = segmentPins[s];
         if (segmentPatterns[d[i]][s]) {
-          ledcWrite(pin, brightness);
-        } else {
-          ledcWrite(pin, 0);
+          ledcWrite(segmentPins[s], brightness);
         }
       }
-      // Enable current digit
+      
+      // 5. Small delay to let segments stabilize
+      delayMicroseconds(10);
+      
+      // 6. Enable current digit
       digitalWrite(digitPins[i], HIGH);
-    } else {
-      // Blank segments
-      for (int s = 0; s < 7; s++) {
-        int pin = segmentPins[s];
-        ledcWrite(pin, 0);
-      }
     }
 
-    delayMicroseconds(600);
+    // 7. Display time - increased for high-power setup
+    delayMicroseconds(800);
   }
 }
 
@@ -128,6 +143,7 @@ void setup() {
   // SEGMENTS — LEDC PWM (ESP32 Core 3.x: channel = pin)
   for (int i = 0; i < 7; i++) {
     ledcAttach(segmentPins[i], 2000 /*Hz*/, 10 /*bits*/);
+    ledcWrite(segmentPins[i], 0);  // Explicitly set to OFF
   }
 
   // WiFi + channel sync with main ESP
