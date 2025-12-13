@@ -7,8 +7,6 @@
 const char* WIFI_SSID = "Netenza_FDC1D0";
 const char* WIFI_PASS = "aA12345!";
 
-
-88:57:21:6A:03:
 uint8_t mainEspMac[] = { 0x88, 0x57, 0x21, 0x6A, 0x03, 0x48 };
 
 // Display & Audio Settings
